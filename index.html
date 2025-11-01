@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe by YallCode (Multiplayer)</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; margin: 0; padding: 20px; transition: background 0.5s; }
+        h1 { color: #333; transition: color 0.5s; }
+        .controls { margin: 10px 0; }
+        button { padding: 8px 16px; font-size: 1em; margin: 0 5px; border: none; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
+        #modeToggle { background: #3498db; color: white; } #modeToggle:hover { background: #2980b9; } #modeToggle.multi-mode { background: #e74c3c; } #modeToggle.multi-mode:hover { background: #c0392b; }
+        #themeToggle { background: #9b59b6; color: white; } #themeToggle:hover { background: #8e44ad; }
+        #reset { background: #27ae60; color: white; } #reset:hover { background: #219a52; }
+        .difficulty-btn { background: #95a5a6; color: white; display: inline-block; transition: background 0.3s; } .difficulty-btn.active { background: #7f8c8d; } .difficulty-btn:hover { background: #6c757d; }
+        .multi-controls { display: none; margin: 10px 0; } .multi-controls.visible { display: block; }
+        #playerNameInput, #roomInput { padding: 8px; margin: 5px; width: 120px; }
+        #roomList { padding: 5px; margin: 5px; width: 200px; }
+        #roomStatus { font-weight: bold; color: #27ae60; margin: 5px; }
+        .board { display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); gap: 5px; margin: 20px auto; justify-content: center; transition: all 0.5s; }
+        .cell { background: #fff; border: 2px solid #333; font-size: 2em; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+        .cell:hover:not(.occupied) { background: #e0e0e0; } .cell.occupied { cursor: default; }
+        .cell.x { color: #e74c3c; } .cell.o { color: #3498db; }
+        #status { font-size: 1.2em; margin: 10px; font-weight: bold; transition: color 0.5s; }
+        @media (max-width: 400px) { .board { grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); } .cell { font-size: 1.5em; } button, input { padding: 6px 12px; font-size: 0.9em; } }
+
+        /* Themes */
+        .theme-classic body { background-color: #f4f4f4; } .theme-classic h1 { color: #333; } .theme-classic .board .cell { background: #fff; border-color: #333; } .theme-classic .cell.x { color: #e74c3c; } .theme-classic .cell.o { color: #3498db; } .theme-classic #status { color: #333; }
+        .theme-cosmic body { background: linear-gradient(to bottom, #0f0f23, #1a1a2e); } .theme-cosmic h1 { color: #ffd700; text-shadow: 0 0 10px #ffd700; } .theme-cosmic .board .cell { background: #16213e; border-color: #ffd700; } .theme-cosmic .cell.x { color: #ffd700; } .theme-cosmic .cell.o { color: #00d4ff; } .theme-cosmic #status { color: #ffd700; }
+        .theme-nature body { background: linear-gradient(to bottom, #e8f5e8, #c8e6c8); } .theme-nature h1 { color: #2e7d32; } .theme-nature .board .cell { background: #f1f8e9; border-color: #4caf50; } .theme-nature .cell.x { color: #388e3c; } .theme-nature .cell.o { color: #2196f3; } .theme-nature #status { color: #2e7d32; }
+    </style>
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+</head>
+<body class="theme-classic">
+    <h1>Tic-Tac-Toe</h1>
+    <div class="controls">
+        <button id="modeToggle">Switch to Multiplayer</button>
+        <button id="themeToggle">Theme: Classic</button>
+        <button id="reset">New Game</button>
+    </div>
+    <div class="multi-controls" id="multiControls">
+        <div>
+            <input type="text" id="playerNameInput" placeholder="Your Name" maxlength="20">
+            <input type="text" id="roomInput" placeholder="Room Code" maxlength="4">
+            <button id="createRoom">Create Room</button>
+            <button id="joinRoom">Join by Code</button>
+        </div>
+        <div>
+            <button id="listRooms">List Open Rooms</button>
+            <select id="roomList"><option>No rooms loaded</option></select>
+            <button id="joinFromList">Join Selected</button>
+        </div>
+        <div id="roomStatus"></div>
+    </div>
+    <div class="difficulty-controls" id="difficultyControls">
+        <button id="diffEasy" class="difficulty-btn active">Easy</button>
+        <button id="diffNormal" class="difficulty-btn">Normal</button>
+        <button id="diffHard" class="difficulty-btn">Hard</button>
+    </div>
+    <div id="status">Player X's turn</div>
+    <div id="board" class="board"></div>
+
+    <script>
+        // Your Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDrV8taEBIkDLDH58pn_Dy-v95zchE6uO8",
+            authDomain: "yallcode-tictactoe.firebaseapp.com",
+            projectId: "yallcode-tictactoe",
+            storageBucket: "yallcode-tictactoe.firebasestorage.app",
+            messagingSenderId: "905155952659",
+            appId: "1:905155952659:web:193e1c583529b06f3cffe6"
+        };
+        let firebaseApp, db;
+        function initFirebase() {
+            if (!firebaseApp) {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                firebase.auth().signInAnonymously().catch(console.error);
+            }
+        }
+
+        // Game vars
+        const boardEl = document.getElementById('board');
+        const statusEl = document.getElementById('status');
+        const modeToggle = document.getElementById('modeToggle');
+        const themeToggle = document.getElementById('themeToggle');
+        const resetBtn = document.getElementById('reset');
+        const diffEasy = document.getElementById('diffEasy');
+        const diffNormal = document.getElementById('diffNormal');
+        const diffHard = document.getElementById('diffHard');
+        const multiControls = document.getElementById('multiControls');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const roomInput = document.getElementById('roomInput');
+        const createRoomBtn = document.getElementById('createRoom');
+        const joinRoomBtn = document.getElementById('joinRoom');
+        const listRoomsBtn = document.getElementById('listRooms');
+        const roomList = document.getElementById('roomList');
+        const joinFromListBtn = document.getElementById('joinFromList');
+        const roomStatus = document.getElementById('roomStatus');
+        const diffControls = document.getElementById('difficultyControls');
+        let currentPlayer = 'X';
+        let gameBoard = Array(9).fill('');
+        let aiMode = true;
+        let multiMode = false;
+        let currentRoomId = null;
+        let mySymbol = null;
+        let opponentName = null;
+        let myName = '';
+        let currentDifficulty = 'easy';
+        let currentTheme = 'classic';
+        let dbRef = null;
+
+        // Build board
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.addEventListener('click', () => makeMove(i));
+            boardEl.appendChild(cell);
+        }
+
+        // Multi functions
+        function generateRoomId() { return Math.random().toString(36).substr(2, 4).toUpperCase(); }
+
+        function getPlayerName() {
+            myName = playerNameInput.value.trim() || `Player ${mySymbol}`;
+            return myName;
+        }
+
+        function createRoom() {
+            initFirebase();
+            const code = roomInput.value.toUpperCase() || generateRoomId();
+            currentRoomId = code;
+            const roomRef = db.ref(`rooms/${code}`);
+            const boardObj = { '0': '', '1': '', '2': '', '3': '', '4': '', '5': '', '6': '', '7': '', '8': '' };
+            getPlayerName();
+            roomRef.set({
+                board: boardObj,
+                turn: 'X',
+                players: { x: myName, o: 'Waiting...' },
+                gameOver: false
+            }).then(() => {
+                roomStatus.textContent = `Room ${code} created as ${myName}! Share: ${window.location.href}?room=${code}`;
+                mySymbol = 'X';
+                opponentName = 'Waiting...';
+                currentPlayer = 'X';
+                statusEl.textContent = `${opponentName} joins? Your turn (${mySymbol})`;
+                listenToRoom(roomRef);
+                updateUrl();
+            }).catch(err => { roomStatus.textContent = 'Create error: ' + err.message; console.error(err); });
+        }
+
+        function joinRoom() {
+            initFirebase();
+            const code = roomInput.value.toUpperCase();
+            if (!code) return roomStatus.textContent = 'Enter room code!';
+            currentRoomId = code;
+            const roomRef = db.ref(`rooms/${code}`);
+            roomRef.once('value').then(snapshot => {
+                if (!snapshot.exists()) return roomStatus.textContent = 'Room not found!';
+                const data = snapshot.val();
+                if (data.gameOver) return roomStatus.textContent = 'Game over—create new!';
+                getPlayerName();
+                const waitingX = data.players.x === 'Waiting...';
+                const waitingO = data.players.o === 'Waiting...';
+                if (!waitingX && !waitingO) return roomStatus.textContent = 'Room full!';
+                mySymbol = waitingX ? 'X' : 'O';
+                const key = mySymbol.toLowerCase();
+                data.players[key] = myName;
+                roomRef.update({ players: data.players });
+                opponentName = data.players[mySymbol === 'X' ? 'o' : 'x'];
+                currentPlayer = data.turn;
+                gameBoard = Object.values(data.board);
+                updateBoard();
+                statusEl.textContent = `Joined ${currentRoomId} as ${mySymbol} (${myName}) vs ${opponentName}! ${currentPlayer === mySymbol ? 'Your turn!' : `${opponentName}'s turn`}`;
+                listenToRoom(roomRef);
+                updateUrl();
+            }).catch(err => { roomStatus.textContent = 'Join error: ' + err.message; console.error(err); });
+        }
+
+        function listRooms() {
+            initFirebase();
+            db.ref('rooms').once('value').then(snapshot => {
+                const rooms = snapshot.val() || {};
+                const openRooms = Object.keys(rooms).filter(id => {
+                    const room = rooms[id];
+                    return !room.gameOver && (room.players.x === 'Waiting...' || room.players.o === 'Waiting...');
+                }).map(id => {
+                    const room = rooms[id];
+                    const waiting = room.players.x === 'Waiting...' ? 'X' : 'O';
+                    const hostName = room.players.x !== 'Waiting...' ? room.players.x : room.players.o;
+                    return { id, label: `${id} - ${hostName} waiting for ${waiting}` };
+                });
+                roomList.innerHTML = openRooms.length ? openRooms.map(r => `<option value="${r.id}">${r.label}</option>`).join('') : '<option>No open rooms</option>';
+                roomStatus.textContent = openRooms.length ? `${openRooms.length} open rooms loaded!` : 'No open rooms—create one!';
+            }).catch(err => { roomStatus.textContent = 'List error: ' + err.message; console.error(err); });
+        }
+
+        function joinFromList() {
+            const selected = roomList.value;
+            if (!selected || selected === 'No open rooms') return roomStatus.textContent = 'Select a room!';
+            roomInput.value = selected;
+            joinRoom();
+        }
+
+        function listenToRoom(roomRef) {
+            if (dbRef) dbRef.off('value');
+            dbRef = roomRef.on('value', snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
+                gameBoard = Object.values(data.board);
+                currentPlayer = data.turn;
+                myName = data.players[mySymbol.toLowerCase()] || myName;
+                opponentName = data.players[mySymbol === 'X' ? 'o' : 'x'] || opponentName;
+                updateBoard();
+                if (data.gameOver) {
+                    statusEl.textContent = data.winner ? `${data.winner === mySymbol ? myName : opponentName} wins! 🎉` : 'Draw! 🤝';
+                    disableBoard();
+                } else if (currentPlayer === mySymbol) {
+                    statusEl.textContent = `Your turn (${mySymbol})`;
+                } else {
+                    statusEl.textContent = `${opponentName}'s turn (${currentPlayer})`;
+                }
+            });
+        }
+
+        function updateUrl() {
+            if (currentRoomId) {
+                const url = new URL(window.location);
+                url.searchParams.set('room', currentRoomId);
+                window.history.pushState({}, '', url);
+            }
+        }
+
+        function makeMove(index) {
+            if (gameBoard[index] !== '' || checkWinner() || (multiMode && currentPlayer !== mySymbol)) return;
+
+            gameBoard[index] = currentPlayer;
+            updateCell(index, currentPlayer);
+
+            const isWin = checkWinner();
+            const isDraw = gameBoard.every(cell => cell !== '');
+            if (multiMode && dbRef) {
+                const boardObj = {};
+                gameBoard.forEach((val, i) => boardObj[i] = val);
+                dbRef.child('board').set(boardObj);
+                if (isWin || isDraw) {
+                    dbRef.update({ gameOver: true, winner: isWin ? currentPlayer : null });
+                } else {
+                    dbRef.child('turn').set(currentPlayer === 'X' ? 'O' : 'X');
+                }
+            } else {
+                if (isWin) { statusEl.textContent = `${currentPlayer} wins! 🎉`; disableBoard(); return; }
+                if (isDraw) { statusEl.textContent = 'Draw! 🤝'; disableBoard(); return; }
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                statusEl.textContent = aiMode && currentPlayer === 'O' ? 'AI thinking...' : `Player ${currentPlayer}'s turn`;
+                if (aiMode && currentPlayer === 'O') {
+                    setTimeout(() => {
+                        if (currentDifficulty === 'easy') aiMoveEasy();
+                        else if (currentDifficulty === 'normal') aiMoveNormal();
+                        else aiMoveHard();
+                    }, currentDifficulty === 'hard' ? 800 : 500);
+                }
+            }
+        }
+
+        function updateBoard() {
+            Array.from(boardEl.children).forEach((cell, i) => {
+                cell.textContent = gameBoard[i];
+                cell.classList.remove('x', 'o', 'occupied');
+                if (gameBoard[i]) cell.classList.add(gameBoard[i].toLowerCase(), 'occupied');
+            });
+        }
+
+        function updateCell(index, symbol) {
+            const cell = boardEl.children[index];
+            cell.textContent = symbol;
+            cell.classList.add(symbol.toLowerCase(), 'occupied');
+        }
+
+        function checkWinner() {
+            const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            return winCombos.some(combo => combo.every(i => gameBoard[i] === currentPlayer));
+        }
+
+        function disableBoard() { Array.from(boardEl.children).forEach(cell => cell.classList.add('occupied')); }
+
+        // AI functions (unchanged)
+        function aiMoveEasy() {
+            const available = getAvailableMoves();
+            const move = available[Math.floor(Math.random() * available.length)];
+            executeAIMove(move);
+        }
+
+        function aiMoveNormal() {
+            const available = getAvailableMoves();
+            for (let move of available) {
+                gameBoard[move] = 'O';
+                if (checkWinnerFor('O')) { gameBoard[move] = ''; executeAIMove(move); return; }
+                gameBoard[move] = '';
+            }
+            for (let move of available) {
+                gameBoard[move] = 'X';
+                if (checkWinnerFor('X')) { gameBoard[move] = ''; executeAIMove(move); return; }
+                gameBoard[move] = '';
+            }
+            if (available.includes(4)) { executeAIMove(4); return; }
+            executeAIMove(available[Math.floor(Math.random() * available.length)]);
+        }
+
+        function aiMoveHard() {
+            const bestMove = minimax(gameBoard, 0, false).index;
+            executeAIMove(bestMove);
+        }
+
+        function minimax(newBoard, depth, isMaximizing) {
+            const available = getAvailableMoves(newBoard);
+            if (checkWinnerFor('O', newBoard)) return { score: 10 - depth };
+            if (checkWinnerFor('X', newBoard)) return { score: depth - 10 };
+            if (available.length === 0) return { score: 0 };
+            if (isMaximizing) {
+                let maxScore = -Infinity, moveIndex = -1;
+                for (let i of available) {
+                    newBoard[i] = 'O';
+                    let score = minimax(newBoard, depth + 1, false).score;
+                    newBoard[i] = '';
+                    if (score > maxScore) { maxScore = score; moveIndex = i; }
+                }
+                return { score: maxScore, index: moveIndex };
+            } else {
+                let minScore = Infinity, moveIndex = -1;
+                for (let i of available) {
+                    newBoard[i] = 'X';
+                    let score = minimax(newBoard, depth + 1, true).score;
+                    newBoard[i] = '';
+                    if (score < minScore) { minScore = score; moveIndex = i; }
+                }
+                return { score: minScore, index: moveIndex };
+            }
+        }
+
+        function executeAIMove(index) {
+            if (gameBoard[index] !== '' || checkWinner()) return;
+            gameBoard[index] = 'O';
+            updateCell(index, 'O');
+            if (checkWinnerFor('O')) { statusEl.textContent = 'AI wins! 🎉'; disableBoard(); return; }
+            if (gameBoard.every(cell => cell !== '')) { statusEl.textContent = 'Draw! 🤝'; disableBoard(); return; }
+            currentPlayer = 'X';
+            statusEl.textContent = "Your turn (X)";
+        }
+
+        function getAvailableMoves(board = gameBoard) {
+            return board.map((cell, i) => cell === '' ? i : null).filter(i => i !== null);
+        }
+
+        function checkWinnerFor(player, board = gameBoard) {
+            const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            return winCombos.some(combo => combo.every(i => board[i] === player));
+        }
+
+        function resetGame() {
+            gameBoard.fill('');
+            updateBoard();
+            currentPlayer = 'X';
+            if (dbRef) { dbRef.off('value'); dbRef = null; currentRoomId = null; mySymbol = null; opponentName = null; myName = ''; roomStatus.textContent = ''; updateUrl(); }
+            statusEl.textContent = multiMode ? 'Create/join room!' : (aiMode ? "You vs AI: Your turn (X)" : "Player X's turn");
+        }
+
+        // Listeners
+        modeToggle.addEventListener('click', () => {
+            multiMode = !multiMode;
+            aiMode = !multiMode;
+            modeToggle.textContent = multiMode ? 'Switch to Local' : 'Switch to Multiplayer';
+            modeToggle.classList.toggle('multi-mode', multiMode);
+            multiControls.classList.toggle('visible', multiMode);
+            diffControls.style.display = multiMode ? 'none' : 'block';
+            if (multiMode) roomStatus.textContent = 'Enter name & create/join!';
+            else resetGame();
+        });
+
+        createRoomBtn.addEventListener('click', createRoom);
+        joinRoomBtn.addEventListener('click', joinRoom);
+        listRoomsBtn.addEventListener('click', listRooms);
+        joinFromListBtn.addEventListener('click', joinFromList);
+
+        window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            if (room) {
+                roomInput.value = room;
+                if (!multiMode) modeToggle.click();
+                joinRoom();
+            }
+        });
+
+        themeToggle.addEventListener('click', () => {
+            const themes = ['classic', 'cosmic', 'nature'];
+            currentTheme = themes[(themes.indexOf(currentTheme) + 1) % 3];
+            document.body.className = `theme-${currentTheme}`;
+            themeToggle.textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
+        });
+
+        [diffEasy, diffNormal, diffHard].forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!aiMode) return;
+                currentDifficulty = btn.id.replace('diff', '').toLowerCase();
+                [diffEasy, diffNormal, diffHard].forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                resetGame();
+            });
+        });
+
+        resetBtn.addEventListener('click', resetGame);
+
+        // Init
+        diffControls.style.display = 'block';
+        multiControls.style.display = 'none';
+    </script>
+</body>
+</html>
