@@ -1,421 +1,824 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic-Tac-Toe by YallCode (Multiplayer)</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; margin: 0; padding: 20px; transition: background 0.5s; }
-        h1 { color: #333; transition: color 0.5s; }
-        .controls { margin: 10px 0; }
-        button { padding: 8px 16px; font-size: 1em; margin: 0 5px; border: none; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
-        #modeToggle { background: #3498db; color: white; } #modeToggle:hover { background: #2980b9; } #modeToggle.multi-mode { background: #e74c3c; } #modeToggle.multi-mode:hover { background: #c0392b; }
-        #themeToggle { background: #9b59b6; color: white; } #themeToggle:hover { background: #8e44ad; }
-        #reset { background: #27ae60; color: white; } #reset:hover { background: #219a52; }
-        .difficulty-btn { background: #95a5a6; color: white; display: inline-block; transition: background 0.3s; } .difficulty-btn.active { background: #7f8c8d; } .difficulty-btn:hover { background: #6c757d; }
-        .multi-controls { display: none; margin: 10px 0; } .multi-controls.visible { display: block; }
-        #playerNameInput, #roomInput { padding: 8px; margin: 5px; width: 120px; }
-        #roomList { padding: 5px; margin: 5px; width: 200px; }
-        #roomStatus { font-weight: bold; color: #27ae60; margin: 5px; }
-        .board { display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); gap: 5px; margin: 20px auto; justify-content: center; transition: all 0.5s; }
-        .cell { background: #fff; border: 2px solid #333; font-size: 2em; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
-        .cell:hover:not(.occupied) { background: #e0e0e0; } .cell.occupied { cursor: default; }
-        .cell.x { color: #e74c3c; } .cell.o { color: #3498db; }
-        #status { font-size: 1.2em; margin: 10px; font-weight: bold; transition: color 0.5s; }
-        @media (max-width: 400px) { .board { grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); } .cell { font-size: 1.5em; } button, input { padding: 6px 12px; font-size: 0.9em; } }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic-Tac-Toe · YallCode</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <style>
+    /* ── RESET & BASE ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* Themes */
-        .theme-classic body { background-color: #f4f4f4; } .theme-classic h1 { color: #333; } .theme-classic .board .cell { background: #fff; border-color: #333; } .theme-classic .cell.x { color: #e74c3c; } .theme-classic .cell.o { color: #3498db; } .theme-classic #status { color: #333; }
-        .theme-cosmic body { background: linear-gradient(to bottom, #0f0f23, #1a1a2e); } .theme-cosmic h1 { color: #ffd700; text-shadow: 0 0 10px #ffd700; } .theme-cosmic .board .cell { background: #16213e; border-color: #ffd700; } .theme-cosmic .cell.x { color: #ffd700; } .theme-cosmic .cell.o { color: #00d4ff; } .theme-cosmic #status { color: #ffd700; }
-        .theme-nature body { background: linear-gradient(to bottom, #e8f5e8, #c8e6c8); } .theme-nature h1 { color: #2e7d32; } .theme-nature .board .cell { background: #f1f8e9; border-color: #4caf50; } .theme-nature .cell.x { color: #388e3c; } .theme-nature .cell.o { color: #2196f3; } .theme-nature #status { color: #2e7d32; }
-    </style>
-    <!-- Firebase CDN -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    :root {
+      --bg:        #07080f;
+      --bg2:       #0d0f1e;
+      --panel:     rgba(13,15,35,.85);
+      --border:    rgba(0,245,255,.18);
+      --x-color:   #ff2d6b;
+      --o-color:   #00f5ff;
+      --gold:      #ffd700;
+      --text:      #c8d6e5;
+      --text-dim:  #5a6880;
+      --glow-x:    0 0 18px #ff2d6b88, 0 0 40px #ff2d6b44;
+      --glow-o:    0 0 18px #00f5ff88, 0 0 40px #00f5ff44;
+      --glow-gold: 0 0 16px #ffd70088;
+      --radius:    10px;
+      --cell-size: 110px;
+      --gap:       8px;
+    }
+
+    /* ── BACKGROUND ───────────────────────────────────────────────── */
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 60px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated grid */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,245,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,245,255,.035) 1px, transparent 1px);
+      background-size: 44px 44px;
+      animation: gridMove 20s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes gridMove { to { background-position: 0 44px; } }
+
+    /* Vignette */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, #07080fcc 100%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── HEADER ───────────────────────────────────────────────────── */
+    .site-header {
+      position: relative; z-index: 10;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .site-header .brand {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(.55rem,.9vw + .4rem,.85rem);
+      color: var(--text-dim);
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .site-header h1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(1.5rem, 4vw, 2.6rem);
+      letter-spacing: .08em;
+      line-height: 1.3;
+      background: linear-gradient(135deg, var(--x-color) 0%, var(--o-color) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 20px #ff2d6b55) drop-shadow(0 0 40px #00f5ff33);
+      animation: titlePulse 4s ease-in-out infinite;
+    }
+    @keyframes titlePulse {
+      0%,100% { filter: drop-shadow(0 0 20px #ff2d6b55) drop-shadow(0 0 40px #00f5ff33); }
+      50%      { filter: drop-shadow(0 0 30px #ff2d6b99) drop-shadow(0 0 60px #00f5ff66); }
+    }
+
+    /* ── MAIN WRAPPER ─────────────────────────────────────────────── */
+    .game-wrapper {
+      position: relative; z-index: 10;
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    /* ── PANEL ────────────────────────────────────────────────────── */
+    .panel {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+
+    /* ── BUTTONS ──────────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    button {
+      font-family: 'Orbitron', sans-serif;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 9px 16px;
+      border: 1px solid;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    button::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: currentColor;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    button:hover::before { opacity: .08; }
+    button:active { transform: scale(.97); }
+
+    #modeToggle       { background: #0a1833; color: var(--o-color); border-color: var(--o-color); box-shadow: 0 0 14px #00f5ff22; }
+    #modeToggle:hover { box-shadow: 0 0 22px #00f5ff66; }
+    #modeToggle.multi-mode       { color: var(--x-color); border-color: var(--x-color); box-shadow: 0 0 14px #ff2d6b22; }
+    #modeToggle.multi-mode:hover { box-shadow: 0 0 22px #ff2d6b66; }
+
+    #themeToggle       { background: #130a2b; color: #b06ee8; border-color: #b06ee8; box-shadow: 0 0 14px #b06ee822; }
+    #themeToggle:hover { box-shadow: 0 0 22px #b06ee866; }
+
+    #reset       { background: #0a2218; color: #39ff6a; border-color: #39ff6a; box-shadow: 0 0 14px #39ff6a22; }
+    #reset:hover { box-shadow: 0 0 22px #39ff6a66; }
+
+    .difficulty-btn {
+      background: #111520; color: var(--text-dim); border-color: rgba(255,255,255,.1);
+    }
+    .difficulty-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .difficulty-btn.active {
+      background: #1a1520; color: var(--gold); border-color: var(--gold);
+      box-shadow: 0 0 12px var(--glow-gold);
+    }
+
+    /* Multiplayer section */
+    .multi-controls { display: none; }
+    .multi-controls.visible { display: flex; flex-direction: column; gap: 10px; }
+
+    .mp-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    input[type="text"], select {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: .8rem;
+      background: #08091a;
+      color: var(--o-color);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: var(--o-color);
+      box-shadow: 0 0 14px #00f5ff33;
+    }
+    input[type="text"]::placeholder { color: var(--text-dim); }
+    #playerNameInput { width: 130px; }
+    #roomInput       { width: 110px; }
+    select#roomList  { width: 210px; background: #08091a; color: var(--text); border-color: var(--border); }
+
+    #roomStatus {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: .75rem;
+      color: #39ff6a;
+      text-align: center;
+      min-height: 1.2em;
+      padding: 4px 0;
+      text-shadow: 0 0 10px #39ff6a55;
+    }
+
+    /* ── DIFFICULTY STRIP ─────────────────────────────────────────── */
+    .diff-strip {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+    }
+    .diff-label {
+      font-size: .6rem;
+      letter-spacing: .2em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    /* ── STATUS ───────────────────────────────────────────────────── */
+    .status-box {
+      width: 100%;
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+    #status {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(.5rem, 1.5vw, .75rem);
+      letter-spacing: .06em;
+      color: var(--text);
+      transition: color .4s;
+      line-height: 1.7;
+    }
+
+    /* ── BOARD ────────────────────────────────────────────────────── */
+    .board-wrap {
+      position: relative;
+      padding: 4px;
+    }
+    .board-wrap::before {
+      content: '';
+      position: absolute; inset: -2px;
+      background: linear-gradient(135deg, var(--x-color), var(--o-color));
+      border-radius: 14px;
+      opacity: .35;
+      filter: blur(6px);
+      z-index: -1;
+      animation: boardGlow 3s ease-in-out infinite;
+    }
+    @keyframes boardGlow {
+      0%,100% { opacity: .35; }
+      50%      { opacity: .6; }
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, var(--cell-size));
+      grid-template-rows:    repeat(3, var(--cell-size));
+      gap: var(--gap);
+      background: #0b0c1a;
+      border-radius: 12px;
+      padding: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .cell {
+      background: #0d0f20;
+      border: 1px solid rgba(0,245,255,.12);
+      border-radius: 8px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 2.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      transition: background .2s, border-color .2s, transform .1s;
+      user-select: none;
+    }
+    .cell::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,.07), transparent 70%);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .cell:hover:not(.occupied)::after { opacity: 1; }
+    .cell:hover:not(.occupied) {
+      background: #141628;
+      border-color: rgba(0,245,255,.35);
+      transform: scale(1.04);
+    }
+    .cell.occupied { cursor: default; }
+
+    .cell.x {
+      color: var(--x-color);
+      border-color: rgba(255,45,107,.4);
+      text-shadow: var(--glow-x);
+      animation: popIn .2s cubic-bezier(.17,.67,.35,1.3);
+    }
+    .cell.o {
+      color: var(--o-color);
+      border-color: rgba(0,245,255,.4);
+      text-shadow: var(--glow-o);
+      animation: popIn .2s cubic-bezier(.17,.67,.35,1.3);
+    }
+    .cell.winner {
+      animation: winPulse .6s ease-in-out infinite alternate !important;
+    }
+    .cell.x.winner {
+      background: rgba(255,45,107,.1);
+      box-shadow: var(--glow-x), inset 0 0 20px rgba(255,45,107,.15);
+    }
+    .cell.o.winner {
+      background: rgba(0,245,255,.1);
+      box-shadow: var(--glow-o), inset 0 0 20px rgba(0,245,255,.15);
+    }
+
+    @keyframes popIn {
+      0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+    }
+    @keyframes winPulse {
+      from { transform: scale(1); }
+      to   { transform: scale(1.08); }
+    }
+
+    /* ── FOOTER ───────────────────────────────────────────────────── */
+    .footer {
+      position: relative; z-index: 10;
+      margin-top: 32px;
+      font-size: .6rem;
+      letter-spacing: .2em;
+      color: var(--text-dim);
+      text-align: center;
+    }
+    .footer a {
+      color: var(--o-color);
+      text-decoration: none;
+      transition: color .2s;
+    }
+    .footer a:hover { color: var(--x-color); }
+
+    /* ── THEME: COSMIC ────────────────────────────────────────────── */
+    .theme-cosmic {
+      --bg:       #020314;
+      --bg2:      #050820;
+      --x-color:  #ffd700;
+      --o-color:  #00d4ff;
+      --panel:    rgba(5,8,28,.9);
+      --border:   rgba(255,215,0,.18);
+    }
+    .theme-cosmic h1 {
+      background: linear-gradient(135deg, var(--x-color), var(--o-color)) !important;
+      -webkit-background-clip: text !important;
+      background-clip: text !important;
+    }
+
+    /* ── THEME: NATURE ────────────────────────────────────────────── */
+    .theme-nature {
+      --bg:       #0a1a0d;
+      --bg2:      #0d2210;
+      --x-color:  #66ff88;
+      --o-color:  #2196f3;
+      --panel:    rgba(10,26,13,.88);
+      --border:   rgba(102,255,136,.2);
+    }
+    .theme-nature body::before {
+      background-image:
+        linear-gradient(rgba(102,255,136,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(102,255,136,.03) 1px, transparent 1px);
+    }
+
+    /* ── RESPONSIVE ───────────────────────────────────────────────── */
+    @media (max-width: 420px) {
+      :root { --cell-size: 85px; --gap: 6px; }
+      .cell { font-size: 1.7rem; }
+      button { font-size: .6rem; padding: 8px 12px; }
+      input[type="text"] { width: 100px !important; }
+    }
+  </style>
 </head>
 <body class="theme-classic">
-    <h1>Tic-Tac-Toe</h1>
-    <div class="controls">
-        <button id="modeToggle">Switch to Multiplayer</button>
-        <button id="themeToggle">Theme: Classic</button>
-        <button id="reset">New Game</button>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="brand">YallCode Presents</div>
+    <h1>TIC·TAC·TOE</h1>
+  </header>
+
+  <!-- GAME WRAPPER -->
+  <div class="game-wrapper">
+
+    <!-- MAIN CONTROLS -->
+    <div class="panel">
+      <div class="controls">
+        <button id="modeToggle">⬡ Multiplayer</button>
+        <button id="themeToggle">◈ Theme: Classic</button>
+        <button id="reset">↺ New Game</button>
+      </div>
     </div>
-    <div class="multi-controls" id="multiControls">
-        <div>
-            <input type="text" id="playerNameInput" placeholder="Your Name" maxlength="20">
-            <input type="text" id="roomInput" placeholder="Room Code" maxlength="4">
-            <button id="createRoom">Create Room</button>
-            <button id="joinRoom">Join by Code</button>
-        </div>
-        <div>
-            <button id="listRooms">List Open Rooms</button>
-            <select id="roomList"><option>No rooms loaded</option></select>
-            <button id="joinFromList">Join Selected</button>
-        </div>
-        <div id="roomStatus"></div>
+
+    <!-- MULTIPLAYER CONTROLS -->
+    <div class="panel multi-controls" id="multiControls">
+      <div class="mp-row">
+        <input type="text" id="playerNameInput" placeholder="Your Name" maxlength="20">
+        <input type="text" id="roomInput" placeholder="Room Code" maxlength="4">
+        <button id="createRoom">+ Create</button>
+        <button id="joinRoom">→ Join</button>
+      </div>
+      <div class="mp-row">
+        <button id="listRooms">⟳ List Rooms</button>
+        <select id="roomList"><option>No rooms loaded</option></select>
+        <button id="joinFromList">→ Join</button>
+      </div>
+      <div id="roomStatus"></div>
     </div>
-    <div class="difficulty-controls" id="difficultyControls">
-        <button id="diffEasy" class="difficulty-btn active">Easy</button>
+
+    <!-- DIFFICULTY -->
+    <div class="panel" id="difficultyControls">
+      <div class="diff-strip">
+        <span class="diff-label">AI Level</span>
+        <button id="diffEasy"   class="difficulty-btn active">Easy</button>
         <button id="diffNormal" class="difficulty-btn">Normal</button>
-        <button id="diffHard" class="difficulty-btn">Hard</button>
+        <button id="diffHard"   class="difficulty-btn">Hard</button>
+      </div>
     </div>
-    <div id="status">Player X's turn</div>
-    <div id="board" class="board"></div>
 
-    <script>
-        // Your Firebase Config
-        const firebaseConfig = {
-            apiKey: "AIzaSyDrV8taEBIkDLDH58pn_Dy-v95zchE6uO8",
-            authDomain: "yallcode-tictactoe.firebaseapp.com",
-            projectId: "yallcode-tictactoe",
-            storageBucket: "yallcode-tictactoe.firebasestorage.app",
-            messagingSenderId: "905155952659",
-            appId: "1:905155952659:web:193e1c583529b06f3cffe6"
-        };
-        let firebaseApp, db;
-        function initFirebase() {
-            if (!firebaseApp) {
-                firebaseApp = firebase.initializeApp(firebaseConfig);
-                db = firebase.database();
-                firebase.auth().signInAnonymously().catch(console.error);
-            }
-        }
+    <!-- STATUS -->
+    <div class="status-box">
+      <div id="status">Player X's turn</div>
+    </div>
 
-        // Game vars
-        const boardEl = document.getElementById('board');
-        const statusEl = document.getElementById('status');
-        const modeToggle = document.getElementById('modeToggle');
-        const themeToggle = document.getElementById('themeToggle');
-        const resetBtn = document.getElementById('reset');
-        const diffEasy = document.getElementById('diffEasy');
-        const diffNormal = document.getElementById('diffNormal');
-        const diffHard = document.getElementById('diffHard');
-        const multiControls = document.getElementById('multiControls');
-        const playerNameInput = document.getElementById('playerNameInput');
-        const roomInput = document.getElementById('roomInput');
-        const createRoomBtn = document.getElementById('createRoom');
-        const joinRoomBtn = document.getElementById('joinRoom');
-        const listRoomsBtn = document.getElementById('listRooms');
-        const roomList = document.getElementById('roomList');
-        const joinFromListBtn = document.getElementById('joinFromList');
-        const roomStatus = document.getElementById('roomStatus');
-        const diffControls = document.getElementById('difficultyControls');
-        let currentPlayer = 'X';
-        let gameBoard = Array(9).fill('');
-        let aiMode = true;
-        let multiMode = false;
-        let currentRoomId = null;
-        let mySymbol = null;
-        let opponentName = null;
-        let myName = '';
-        let currentDifficulty = 'easy';
-        let currentTheme = 'classic';
-        let dbRef = null;
+    <!-- BOARD -->
+    <div class="board-wrap">
+      <div id="board" class="board"></div>
+    </div>
 
-        // Build board
-        for (let i = 0; i < 9; i++) {
-            const cell = document.createElement('div');
-            cell.classList.add('cell');
-            cell.addEventListener('click', () => makeMove(i));
-            boardEl.appendChild(cell);
-        }
+  </div>
 
-        // Multi functions
-        function generateRoomId() { return Math.random().toString(36).substr(2, 4).toUpperCase(); }
+  <!-- FOOTER -->
+  <footer class="footer">
+    <a href="https://Yallcode.github.io/YallCode" target="_blank">Yallcode.github.io/YallCode</a>
+  </footer>
 
-        function getPlayerName() {
-            myName = playerNameInput.value.trim() || `Player ${mySymbol}`;
-            return myName;
-        }
+  <script>
+    // ── FIREBASE ─────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyDrV8taEBIkDLDH58pn_Dy-v95zchE6uO8",
+      authDomain: "yallcode-tictactoe.firebaseapp.com",
+      projectId: "yallcode-tictactoe",
+      storageBucket: "yallcode-tictactoe.firebasestorage.app",
+      messagingSenderId: "905155952659",
+      appId: "1:905155952659:web:193e1c583529b06f3cffe6"
+    };
+    let firebaseApp, db;
+    function initFirebase() {
+      if (!firebaseApp) {
+        firebaseApp = firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        firebase.auth().signInAnonymously().catch(console.error);
+      }
+    }
 
-        function createRoom() {
-            initFirebase();
-            const code = roomInput.value.toUpperCase() || generateRoomId();
-            currentRoomId = code;
-            const roomRef = db.ref(`rooms/${code}`);
-            const boardObj = { '0': '', '1': '', '2': '', '3': '', '4': '', '5': '', '6': '', '7': '', '8': '' };
-            getPlayerName();
-            roomRef.set({
-                board: boardObj,
-                turn: 'X',
-                players: { x: myName, o: 'Waiting...' },
-                gameOver: false
-            }).then(() => {
-                roomStatus.textContent = `Room ${code} created as ${myName}! Share: ${window.location.href}?room=${code}`;
-                mySymbol = 'X';
-                opponentName = 'Waiting...';
-                currentPlayer = 'X';
-                statusEl.textContent = `${opponentName} joins? Your turn (${mySymbol})`;
-                listenToRoom(roomRef);
-                updateUrl();
-            }).catch(err => { roomStatus.textContent = 'Create error: ' + err.message; console.error(err); });
-        }
+    // ── DOM REFS ──────────────────────────────────────────────────────
+    const boardEl        = document.getElementById('board');
+    const statusEl       = document.getElementById('status');
+    const modeToggle     = document.getElementById('modeToggle');
+    const themeToggle    = document.getElementById('themeToggle');
+    const resetBtn       = document.getElementById('reset');
+    const diffEasy       = document.getElementById('diffEasy');
+    const diffNormal     = document.getElementById('diffNormal');
+    const diffHard       = document.getElementById('diffHard');
+    const multiControls  = document.getElementById('multiControls');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const roomInput      = document.getElementById('roomInput');
+    const createRoomBtn  = document.getElementById('createRoom');
+    const joinRoomBtn    = document.getElementById('joinRoom');
+    const listRoomsBtn   = document.getElementById('listRooms');
+    const roomList       = document.getElementById('roomList');
+    const joinFromListBtn = document.getElementById('joinFromList');
+    const roomStatus     = document.getElementById('roomStatus');
+    const diffControls   = document.getElementById('difficultyControls');
 
-        function joinRoom() {
-            initFirebase();
-            const code = roomInput.value.toUpperCase();
-            if (!code) return roomStatus.textContent = 'Enter room code!';
-            currentRoomId = code;
-            const roomRef = db.ref(`rooms/${code}`);
-            roomRef.once('value').then(snapshot => {
-                if (!snapshot.exists()) return roomStatus.textContent = 'Room not found!';
-                const data = snapshot.val();
-                if (data.gameOver) return roomStatus.textContent = 'Game over—create new!';
-                getPlayerName();
-                const waitingX = data.players.x === 'Waiting...';
-                const waitingO = data.players.o === 'Waiting...';
-                if (!waitingX && !waitingO) return roomStatus.textContent = 'Room full!';
-                mySymbol = waitingX ? 'X' : 'O';
-                const key = mySymbol.toLowerCase();
-                data.players[key] = myName;
-                roomRef.update({ players: data.players });
-                opponentName = data.players[mySymbol === 'X' ? 'o' : 'x'];
-                currentPlayer = data.turn;
-                gameBoard = Object.values(data.board);
-                updateBoard();
-                statusEl.textContent = `Joined ${currentRoomId} as ${mySymbol} (${myName}) vs ${opponentName}! ${currentPlayer === mySymbol ? 'Your turn!' : `${opponentName}'s turn`}`;
-                listenToRoom(roomRef);
-                updateUrl();
-            }).catch(err => { roomStatus.textContent = 'Join error: ' + err.message; console.error(err); });
-        }
+    // ── GAME STATE ────────────────────────────────────────────────────
+    let currentPlayer     = 'X';
+    let gameBoard         = Array(9).fill('');
+    let aiMode            = true;
+    let multiMode         = false;
+    let currentRoomId     = null;
+    let mySymbol          = null;
+    let opponentName      = null;
+    let myName            = '';
+    let currentDifficulty = 'easy';
+    let currentTheme      = 'classic';
+    let dbRef             = null;
 
-        function listRooms() {
-            initFirebase();
-            db.ref('rooms').once('value').then(snapshot => {
-                const rooms = snapshot.val() || {};
-                const openRooms = Object.keys(rooms).filter(id => {
-                    const room = rooms[id];
-                    return !room.gameOver && (room.players.x === 'Waiting...' || room.players.o === 'Waiting...');
-                }).map(id => {
-                    const room = rooms[id];
-                    const waiting = room.players.x === 'Waiting...' ? 'X' : 'O';
-                    const hostName = room.players.x !== 'Waiting...' ? room.players.x : room.players.o;
-                    return { id, label: `${id} - ${hostName} waiting for ${waiting}` };
-                });
-                roomList.innerHTML = openRooms.length ? openRooms.map(r => `<option value="${r.id}">${r.label}</option>`).join('') : '<option>No open rooms</option>';
-                roomStatus.textContent = openRooms.length ? `${openRooms.length} open rooms loaded!` : 'No open rooms—create one!';
-            }).catch(err => { roomStatus.textContent = 'List error: ' + err.message; console.error(err); });
-        }
+    // ── BUILD BOARD ───────────────────────────────────────────────────
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.addEventListener('click', () => makeMove(i));
+      boardEl.appendChild(cell);
+    }
 
-        function joinFromList() {
-            const selected = roomList.value;
-            if (!selected || selected === 'No open rooms') return roomStatus.textContent = 'Select a room!';
-            roomInput.value = selected;
-            joinRoom();
-        }
+    // ── WIN HIGHLIGHT ──────────────────────────────────────────────────
+    const WIN_COMBOS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-        function listenToRoom(roomRef) {
-            if (dbRef) dbRef.off('value');
-            dbRef = roomRef.on('value', snapshot => {
-                const data = snapshot.val();
-                if (!data) return;
-                gameBoard = Object.values(data.board);
-                currentPlayer = data.turn;
-                myName = data.players[mySymbol.toLowerCase()] || myName;
-                opponentName = data.players[mySymbol === 'X' ? 'o' : 'x'] || opponentName;
-                updateBoard();
-                if (data.gameOver) {
-                    statusEl.textContent = data.winner ? `${data.winner === mySymbol ? myName : opponentName} wins! 🎉` : 'Draw! 🤝';
-                    disableBoard();
-                } else if (currentPlayer === mySymbol) {
-                    statusEl.textContent = `Your turn (${mySymbol})`;
-                } else {
-                    statusEl.textContent = `${opponentName}'s turn (${currentPlayer})`;
-                }
-            });
-        }
+    function highlightWinner(player, board = gameBoard) {
+      const combo = WIN_COMBOS.find(c => c.every(i => board[i] === player));
+      if (combo) combo.forEach(i => boardEl.children[i].classList.add('winner'));
+    }
 
-        function updateUrl() {
-            if (currentRoomId) {
-                const url = new URL(window.location);
-                url.searchParams.set('room', currentRoomId);
-                window.history.pushState({}, '', url);
-            }
-        }
+    // ── MULTIPLAYER HELPERS ───────────────────────────────────────────
+    function generateRoomId() { return Math.random().toString(36).substr(2,4).toUpperCase(); }
+    function getPlayerName() { myName = playerNameInput.value.trim() || `Player ${mySymbol}`; return myName; }
 
-        function makeMove(index) {
-            if (gameBoard[index] !== '' || checkWinner() || (multiMode && currentPlayer !== mySymbol)) return;
+    function createRoom() {
+      initFirebase();
+      const code = roomInput.value.toUpperCase() || generateRoomId();
+      currentRoomId = code;
+      const roomRef = db.ref(`rooms/${code}`);
+      const boardObj = {'0':'','1':'','2':'','3':'','4':'','5':'','6':'','7':'','8':''};
+      getPlayerName();
+      roomRef.set({
+        board: boardObj, turn: 'X',
+        players: { x: myName, o: 'Waiting...' }, gameOver: false
+      }).then(() => {
+        roomStatus.textContent = `Room ${code} created as ${myName}! Share: ${window.location.href}?room=${code}`;
+        mySymbol = 'X'; opponentName = 'Waiting...'; currentPlayer = 'X';
+        statusEl.textContent = `${opponentName} joins? Your turn (${mySymbol})`;
+        listenToRoom(roomRef); updateUrl();
+      }).catch(err => { roomStatus.textContent = 'Create error: ' + err.message; });
+    }
 
-            gameBoard[index] = currentPlayer;
-            updateCell(index, currentPlayer);
+    function joinRoom() {
+      initFirebase();
+      const code = roomInput.value.toUpperCase();
+      if (!code) return (roomStatus.textContent = 'Enter room code!');
+      currentRoomId = code;
+      const roomRef = db.ref(`rooms/${code}`);
+      roomRef.once('value').then(snapshot => {
+        if (!snapshot.exists()) return (roomStatus.textContent = 'Room not found!');
+        const data = snapshot.val();
+        if (data.gameOver) return (roomStatus.textContent = 'Game over—create new!');
+        getPlayerName();
+        const waitingX = data.players.x === 'Waiting...';
+        const waitingO = data.players.o === 'Waiting...';
+        if (!waitingX && !waitingO) return (roomStatus.textContent = 'Room full!');
+        mySymbol = waitingX ? 'X' : 'O';
+        const key = mySymbol.toLowerCase();
+        data.players[key] = myName;
+        roomRef.update({ players: data.players });
+        opponentName = data.players[mySymbol === 'X' ? 'o' : 'x'];
+        currentPlayer = data.turn;
+        gameBoard = Object.values(data.board);
+        updateBoard();
+        statusEl.textContent = `Joined ${currentRoomId} as ${mySymbol} (${myName}) vs ${opponentName}! ${currentPlayer === mySymbol ? 'Your turn!' : `${opponentName}'s turn`}`;
+        listenToRoom(roomRef); updateUrl();
+      }).catch(err => { roomStatus.textContent = 'Join error: ' + err.message; });
+    }
 
-            const isWin = checkWinner();
-            const isDraw = gameBoard.every(cell => cell !== '');
-            if (multiMode && dbRef) {
-                const boardObj = {};
-                gameBoard.forEach((val, i) => boardObj[i] = val);
-                dbRef.child('board').set(boardObj);
-                if (isWin || isDraw) {
-                    dbRef.update({ gameOver: true, winner: isWin ? currentPlayer : null });
-                } else {
-                    dbRef.child('turn').set(currentPlayer === 'X' ? 'O' : 'X');
-                }
-            } else {
-                if (isWin) { statusEl.textContent = `${currentPlayer} wins! 🎉`; disableBoard(); return; }
-                if (isDraw) { statusEl.textContent = 'Draw! 🤝'; disableBoard(); return; }
-                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-                statusEl.textContent = aiMode && currentPlayer === 'O' ? 'AI thinking...' : `Player ${currentPlayer}'s turn`;
-                if (aiMode && currentPlayer === 'O') {
-                    setTimeout(() => {
-                        if (currentDifficulty === 'easy') aiMoveEasy();
-                        else if (currentDifficulty === 'normal') aiMoveNormal();
-                        else aiMoveHard();
-                    }, currentDifficulty === 'hard' ? 800 : 500);
-                }
-            }
-        }
-
-        function updateBoard() {
-            Array.from(boardEl.children).forEach((cell, i) => {
-                cell.textContent = gameBoard[i];
-                cell.classList.remove('x', 'o', 'occupied');
-                if (gameBoard[i]) cell.classList.add(gameBoard[i].toLowerCase(), 'occupied');
-            });
-        }
-
-        function updateCell(index, symbol) {
-            const cell = boardEl.children[index];
-            cell.textContent = symbol;
-            cell.classList.add(symbol.toLowerCase(), 'occupied');
-        }
-
-        function checkWinner() {
-            const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-            return winCombos.some(combo => combo.every(i => gameBoard[i] === currentPlayer));
-        }
-
-        function disableBoard() { Array.from(boardEl.children).forEach(cell => cell.classList.add('occupied')); }
-
-        // AI functions (unchanged)
-        function aiMoveEasy() {
-            const available = getAvailableMoves();
-            const move = available[Math.floor(Math.random() * available.length)];
-            executeAIMove(move);
-        }
-
-        function aiMoveNormal() {
-            const available = getAvailableMoves();
-            for (let move of available) {
-                gameBoard[move] = 'O';
-                if (checkWinnerFor('O')) { gameBoard[move] = ''; executeAIMove(move); return; }
-                gameBoard[move] = '';
-            }
-            for (let move of available) {
-                gameBoard[move] = 'X';
-                if (checkWinnerFor('X')) { gameBoard[move] = ''; executeAIMove(move); return; }
-                gameBoard[move] = '';
-            }
-            if (available.includes(4)) { executeAIMove(4); return; }
-            executeAIMove(available[Math.floor(Math.random() * available.length)]);
-        }
-
-        function aiMoveHard() {
-            const bestMove = minimax(gameBoard, 0, false).index;
-            executeAIMove(bestMove);
-        }
-
-        function minimax(newBoard, depth, isMaximizing) {
-            const available = getAvailableMoves(newBoard);
-            if (checkWinnerFor('O', newBoard)) return { score: 10 - depth };
-            if (checkWinnerFor('X', newBoard)) return { score: depth - 10 };
-            if (available.length === 0) return { score: 0 };
-            if (isMaximizing) {
-                let maxScore = -Infinity, moveIndex = -1;
-                for (let i of available) {
-                    newBoard[i] = 'O';
-                    let score = minimax(newBoard, depth + 1, false).score;
-                    newBoard[i] = '';
-                    if (score > maxScore) { maxScore = score; moveIndex = i; }
-                }
-                return { score: maxScore, index: moveIndex };
-            } else {
-                let minScore = Infinity, moveIndex = -1;
-                for (let i of available) {
-                    newBoard[i] = 'X';
-                    let score = minimax(newBoard, depth + 1, true).score;
-                    newBoard[i] = '';
-                    if (score < minScore) { minScore = score; moveIndex = i; }
-                }
-                return { score: minScore, index: moveIndex };
-            }
-        }
-
-        function executeAIMove(index) {
-            if (gameBoard[index] !== '' || checkWinner()) return;
-            gameBoard[index] = 'O';
-            updateCell(index, 'O');
-            if (checkWinnerFor('O')) { statusEl.textContent = 'AI wins! 🎉'; disableBoard(); return; }
-            if (gameBoard.every(cell => cell !== '')) { statusEl.textContent = 'Draw! 🤝'; disableBoard(); return; }
-            currentPlayer = 'X';
-            statusEl.textContent = "Your turn (X)";
-        }
-
-        function getAvailableMoves(board = gameBoard) {
-            return board.map((cell, i) => cell === '' ? i : null).filter(i => i !== null);
-        }
-
-        function checkWinnerFor(player, board = gameBoard) {
-            const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-            return winCombos.some(combo => combo.every(i => board[i] === player));
-        }
-
-        function resetGame() {
-            gameBoard.fill('');
-            updateBoard();
-            currentPlayer = 'X';
-            if (dbRef) { dbRef.off('value'); dbRef = null; currentRoomId = null; mySymbol = null; opponentName = null; myName = ''; roomStatus.textContent = ''; updateUrl(); }
-            statusEl.textContent = multiMode ? 'Create/join room!' : (aiMode ? "You vs AI: Your turn (X)" : "Player X's turn");
-        }
-
-        // Listeners
-        modeToggle.addEventListener('click', () => {
-            multiMode = !multiMode;
-            aiMode = !multiMode;
-            modeToggle.textContent = multiMode ? 'Switch to Local' : 'Switch to Multiplayer';
-            modeToggle.classList.toggle('multi-mode', multiMode);
-            multiControls.classList.toggle('visible', multiMode);
-            diffControls.style.display = multiMode ? 'none' : 'block';
-            if (multiMode) roomStatus.textContent = 'Enter name & create/join!';
-            else resetGame();
+    function listRooms() {
+      initFirebase();
+      db.ref('rooms').once('value').then(snapshot => {
+        const rooms = snapshot.val() || {};
+        const openRooms = Object.keys(rooms).filter(id => {
+          const r = rooms[id];
+          return !r.gameOver && (r.players.x === 'Waiting...' || r.players.o === 'Waiting...');
+        }).map(id => {
+          const r = rooms[id];
+          const waiting = r.players.x === 'Waiting...' ? 'X' : 'O';
+          const hostName = r.players.x !== 'Waiting...' ? r.players.x : r.players.o;
+          return { id, label: `${id} - ${hostName} waiting for ${waiting}` };
         });
+        roomList.innerHTML = openRooms.length
+          ? openRooms.map(r => `<option value="${r.id}">${r.label}</option>`).join('')
+          : '<option>No open rooms</option>';
+        roomStatus.textContent = openRooms.length ? `${openRooms.length} open rooms loaded!` : 'No open rooms—create one!';
+      }).catch(err => { roomStatus.textContent = 'List error: ' + err.message; });
+    }
 
-        createRoomBtn.addEventListener('click', createRoom);
-        joinRoomBtn.addEventListener('click', joinRoom);
-        listRoomsBtn.addEventListener('click', listRooms);
-        joinFromListBtn.addEventListener('click', joinFromList);
+    function joinFromList() {
+      const selected = roomList.value;
+      if (!selected || selected === 'No open rooms') return (roomStatus.textContent = 'Select a room!');
+      roomInput.value = selected;
+      joinRoom();
+    }
 
-        window.addEventListener('load', () => {
-            const params = new URLSearchParams(window.location.search);
-            const room = params.get('room');
-            if (room) {
-                roomInput.value = room;
-                if (!multiMode) modeToggle.click();
-                joinRoom();
-            }
-        });
+    function listenToRoom(roomRef) {
+      if (dbRef) dbRef.off('value');
+      dbRef = roomRef.on('value', snapshot => {
+        const data = snapshot.val();
+        if (!data) return;
+        gameBoard = Object.values(data.board);
+        currentPlayer = data.turn;
+        myName = data.players[mySymbol.toLowerCase()] || myName;
+        opponentName = data.players[mySymbol === 'X' ? 'o' : 'x'] || opponentName;
+        updateBoard();
+        if (data.gameOver) {
+          const winnerSymbol = data.winner;
+          if (winnerSymbol) highlightWinner(winnerSymbol);
+          statusEl.textContent = data.winner
+            ? `${data.winner === mySymbol ? myName : opponentName} wins! 🎉`
+            : 'Draw! 🤝';
+          disableBoard();
+        } else if (currentPlayer === mySymbol) {
+          statusEl.textContent = `Your turn (${mySymbol})`;
+        } else {
+          statusEl.textContent = `${opponentName}'s turn (${currentPlayer})`;
+        }
+      });
+    }
 
-        themeToggle.addEventListener('click', () => {
-            const themes = ['classic', 'cosmic', 'nature'];
-            currentTheme = themes[(themes.indexOf(currentTheme) + 1) % 3];
-            document.body.className = `theme-${currentTheme}`;
-            themeToggle.textContent = `Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`;
-        });
+    function updateUrl() {
+      if (currentRoomId) {
+        const url = new URL(window.location);
+        url.searchParams.set('room', currentRoomId);
+        window.history.pushState({}, '', url);
+      }
+    }
 
-        [diffEasy, diffNormal, diffHard].forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (!aiMode) return;
-                currentDifficulty = btn.id.replace('diff', '').toLowerCase();
-                [diffEasy, diffNormal, diffHard].forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                resetGame();
-            });
-        });
+    // ── GAME LOGIC ────────────────────────────────────────────────────
+    function makeMove(index) {
+      if (gameBoard[index] !== '' || checkWinner() || (multiMode && currentPlayer !== mySymbol)) return;
+      gameBoard[index] = currentPlayer;
+      updateCell(index, currentPlayer);
+      const isWin = checkWinner();
+      const isDraw = gameBoard.every(c => c !== '');
+      if (multiMode && dbRef) {
+        const boardObj = {};
+        gameBoard.forEach((val, i) => boardObj[i] = val);
+        dbRef.child('board').set(boardObj);
+        if (isWin || isDraw) {
+          dbRef.update({ gameOver: true, winner: isWin ? currentPlayer : null });
+        } else {
+          dbRef.child('turn').set(currentPlayer === 'X' ? 'O' : 'X');
+        }
+      } else {
+        if (isWin) { highlightWinner(currentPlayer); statusEl.textContent = `${currentPlayer} wins! 🎉`; disableBoard(); return; }
+        if (isDraw) { statusEl.textContent = 'Draw! 🤝'; disableBoard(); return; }
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        statusEl.textContent = aiMode && currentPlayer === 'O' ? 'AI thinking...' : `Player ${currentPlayer}'s turn`;
+        if (aiMode && currentPlayer === 'O') {
+          setTimeout(() => {
+            if (currentDifficulty === 'easy') aiMoveEasy();
+            else if (currentDifficulty === 'normal') aiMoveNormal();
+            else aiMoveHard();
+          }, currentDifficulty === 'hard' ? 800 : 500);
+        }
+      }
+    }
 
-        resetBtn.addEventListener('click', resetGame);
+    function updateBoard() {
+      Array.from(boardEl.children).forEach((cell, i) => {
+        cell.textContent = gameBoard[i];
+        cell.classList.remove('x', 'o', 'occupied', 'winner');
+        if (gameBoard[i]) cell.classList.add(gameBoard[i].toLowerCase(), 'occupied');
+      });
+    }
 
-        // Init
-        diffControls.style.display = 'block';
-        multiControls.style.display = 'none';
-    </script>
+    function updateCell(index, symbol) {
+      const cell = boardEl.children[index];
+      cell.textContent = symbol;
+      cell.classList.add(symbol.toLowerCase(), 'occupied');
+    }
+
+    function checkWinner() {
+      return WIN_COMBOS.some(combo => combo.every(i => gameBoard[i] === currentPlayer));
+    }
+
+    function checkWinnerFor(player, board = gameBoard) {
+      return WIN_COMBOS.some(combo => combo.every(i => board[i] === player));
+    }
+
+    function disableBoard() {
+      Array.from(boardEl.children).forEach(cell => cell.classList.add('occupied'));
+    }
+
+    // ── AI ────────────────────────────────────────────────────────────
+    function getAvailableMoves(board = gameBoard) {
+      return board.map((cell, i) => cell === '' ? i : null).filter(i => i !== null);
+    }
+
+    function aiMoveEasy() {
+      const available = getAvailableMoves();
+      executeAIMove(available[Math.floor(Math.random() * available.length)]);
+    }
+
+    function aiMoveNormal() {
+      const available = getAvailableMoves();
+      for (let move of available) {
+        gameBoard[move] = 'O';
+        if (checkWinnerFor('O')) { gameBoard[move] = ''; executeAIMove(move); return; }
+        gameBoard[move] = '';
+      }
+      for (let move of available) {
+        gameBoard[move] = 'X';
+        if (checkWinnerFor('X')) { gameBoard[move] = ''; executeAIMove(move); return; }
+        gameBoard[move] = '';
+      }
+      if (available.includes(4)) { executeAIMove(4); return; }
+      executeAIMove(available[Math.floor(Math.random() * available.length)]);
+    }
+
+    function aiMoveHard() {
+      executeAIMove(minimax(gameBoard, 0, false).index);
+    }
+
+    function minimax(newBoard, depth, isMaximizing) {
+      const available = getAvailableMoves(newBoard);
+      if (checkWinnerFor('O', newBoard)) return { score: 10 - depth };
+      if (checkWinnerFor('X', newBoard)) return { score: depth - 10 };
+      if (available.length === 0) return { score: 0 };
+      if (isMaximizing) {
+        let maxScore = -Infinity, moveIndex = -1;
+        for (let i of available) {
+          newBoard[i] = 'O';
+          let score = minimax(newBoard, depth + 1, false).score;
+          newBoard[i] = '';
+          if (score > maxScore) { maxScore = score; moveIndex = i; }
+        }
+        return { score: maxScore, index: moveIndex };
+      } else {
+        let minScore = Infinity, moveIndex = -1;
+        for (let i of available) {
+          newBoard[i] = 'X';
+          let score = minimax(newBoard, depth + 1, true).score;
+          newBoard[i] = '';
+          if (score < minScore) { minScore = score; moveIndex = i; }
+        }
+        return { score: minScore, index: moveIndex };
+      }
+    }
+
+    function executeAIMove(index) {
+      if (gameBoard[index] !== '' || checkWinner()) return;
+      gameBoard[index] = 'O';
+      updateCell(index, 'O');
+      if (checkWinnerFor('O')) {
+        highlightWinner('O');
+        statusEl.textContent = 'AI wins! 🎉'; disableBoard(); return;
+      }
+      if (gameBoard.every(c => c !== '')) { statusEl.textContent = 'Draw! 🤝'; disableBoard(); return; }
+      currentPlayer = 'X';
+      statusEl.textContent = 'Your turn (X)';
+    }
+
+    function resetGame() {
+      gameBoard.fill('');
+      updateBoard();
+      currentPlayer = 'X';
+      if (dbRef) {
+        dbRef.off('value'); dbRef = null; currentRoomId = null;
+        mySymbol = null; opponentName = null; myName = '';
+        roomStatus.textContent = ''; updateUrl();
+      }
+      statusEl.textContent = multiMode ? 'Create/join room!' : (aiMode ? 'You vs AI — Your turn (X)' : "Player X's turn");
+    }
+
+    // ── EVENT LISTENERS ───────────────────────────────────────────────
+    modeToggle.addEventListener('click', () => {
+      multiMode = !multiMode;
+      aiMode = !multiMode;
+      modeToggle.textContent = multiMode ? '⬡ Local Mode' : '⬡ Multiplayer';
+      modeToggle.classList.toggle('multi-mode', multiMode);
+      multiControls.classList.toggle('visible', multiMode);
+      diffControls.style.display = multiMode ? 'none' : 'block';
+      if (multiMode) roomStatus.textContent = 'Enter name & create/join!';
+      else resetGame();
+    });
+
+    createRoomBtn.addEventListener('click', createRoom);
+    joinRoomBtn.addEventListener('click', joinRoom);
+    listRoomsBtn.addEventListener('click', listRooms);
+    joinFromListBtn.addEventListener('click', joinFromList);
+
+    window.addEventListener('load', () => {
+      const params = new URLSearchParams(window.location.search);
+      const room = params.get('room');
+      if (room) { roomInput.value = room; if (!multiMode) modeToggle.click(); joinRoom(); }
+    });
+
+    themeToggle.addEventListener('click', () => {
+      const themes = ['classic', 'cosmic', 'nature'];
+      const labels = { classic: 'Classic', cosmic: 'Cosmic', nature: 'Nature' };
+      currentTheme = themes[(themes.indexOf(currentTheme) + 1) % 3];
+      document.body.className = `theme-${currentTheme}`;
+      themeToggle.textContent = `◈ Theme: ${labels[currentTheme]}`;
+    });
+
+    [diffEasy, diffNormal, diffHard].forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!aiMode) return;
+        currentDifficulty = btn.id.replace('diff', '').toLowerCase();
+        [diffEasy, diffNormal, diffHard].forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        resetGame();
+      });
+    });
+
+    resetBtn.addEventListener('click', resetGame);
+
+    // Init
+    diffControls.style.display = 'block';
+  </script>
 </body>
 </html>
