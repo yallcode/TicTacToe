@@ -4,10 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tic-Tac-Toe · YallCode</title>
+  <link rel="icon" href="icon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <style>
     /* ── RESET & BASE ─────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -71,6 +73,23 @@
       position: relative; z-index: 10;
       text-align: center;
       margin-bottom: 6px;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .site-icon {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 10px #00f5ff88);
+      animation: iconFloat 3s ease-in-out infinite;
+    }
+    @keyframes iconFloat {
+      0%,100% { transform: translateY(0);   filter: drop-shadow(0 0 10px #00f5ff88); }
+      50%      { transform: translateY(-5px); filter: drop-shadow(0 0 18px #ff2d6b88); }
     }
     .site-header .brand {
       font-family: 'Press Start 2P', monospace;
@@ -401,7 +420,11 @@
   <!-- HEADER -->
   <header class="site-header">
     <div class="brand">YallCode Presents</div>
-    <h1>TIC·TAC·TOE</h1>
+    <div class="title-row">
+      <img src="icon.png" alt="YallCode logo" class="site-icon">
+      <h1>TIC·TAC·TOE</h1>
+      <img src="icon.png" alt="YallCode logo" class="site-icon">
+    </div>
   </header>
 
   <!-- GAME WRAPPER -->
