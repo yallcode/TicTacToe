@@ -509,7 +509,8 @@
     let myName            = '';
     let currentDifficulty = 'easy';
     let currentTheme      = 'classic';
-    let dbRef             = null;
+    let currentRoomRef    = null;  // Firebase DatabaseReference for the room
+    let dbListener        = null;  // The actual listener callback (separate from the ref!)
 
     // ── BUILD BOARD ───────────────────────────────────────────────────
     for (let i = 0; i < 9; i++) {
@@ -604,8 +605,9 @@
     }
 
     function listenToRoom(roomRef) {
-      if (dbRef) dbRef.off('value');
-      dbRef = roomRef.on('value', snapshot => {
+      if (currentRoomRef && dbListener) currentRoomRef.off('value', dbListener);
+      currentRoomRef = roomRef;
+      dbListener = snapshot => {
         const data = snapshot.val();
         if (!data) return;
         gameBoard = Object.values(data.board);
@@ -625,7 +627,8 @@
         } else {
           statusEl.textContent = `${opponentName}'s turn (${currentPlayer})`;
         }
-      });
+      };
+      currentRoomRef.on('value', dbListener);
     }
 
     function updateUrl() {
@@ -643,14 +646,14 @@
       updateCell(index, currentPlayer);
       const isWin = checkWinner();
       const isDraw = gameBoard.every(c => c !== '');
-      if (multiMode && dbRef) {
+      if (multiMode && currentRoomRef) {
         const boardObj = {};
         gameBoard.forEach((val, i) => boardObj[i] = val);
-        dbRef.child('board').set(boardObj);
+        currentRoomRef.child('board').set(boardObj);
         if (isWin || isDraw) {
-          dbRef.update({ gameOver: true, winner: isWin ? currentPlayer : null });
+          currentRoomRef.update({ gameOver: true, winner: isWin ? currentPlayer : null });
         } else {
-          dbRef.child('turn').set(currentPlayer === 'X' ? 'O' : 'X');
+          currentRoomRef.child('turn').set(currentPlayer === 'X' ? 'O' : 'X');
         }
       } else {
         if (isWin) { highlightWinner(currentPlayer); statusEl.textContent = `${currentPlayer} wins! 🎉`; disableBoard(); return; }
@@ -766,8 +769,9 @@
       gameBoard.fill('');
       updateBoard();
       currentPlayer = 'X';
-      if (dbRef) {
-        dbRef.off('value'); dbRef = null; currentRoomId = null;
+      if (currentRoomRef) {
+        if (dbListener) currentRoomRef.off('value', dbListener);
+        currentRoomRef = null; dbListener = null; currentRoomId = null;
         mySymbol = null; opponentName = null; myName = '';
         roomStatus.textContent = ''; updateUrl();
       }
